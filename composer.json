@@ -1,6 +1,7 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
     "name": "portfolio/api",
+    "version": "0.0.1",
     "type": "project",
     "description": "Portfolio API - CV Interactif sans base de données",
     "keywords": ["laravel", "api", "portfolio", "cv"],
@@ -20,7 +21,10 @@
     "autoload": {
         "psr-4": {
             "App\\": "app/"
-        }
+        },
+        "files": [
+            "app/helpers.php"
+        ]
     },
     "autoload-dev": {
         "psr-4": {
