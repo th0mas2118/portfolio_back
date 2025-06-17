@@ -12,7 +12,13 @@ return Application::configure(basePath: dirname(__DIR__))
         apiPrefix: 'api',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Middleware CORS global pour toutes les routes API
+        $middleware->api([
+            \App\Http\Middleware\CorsMiddleware::class,
+        ]);
+        
+        // Alternative: l'appliquer à TOUTES les routes (web + api)
+        // $middleware->append(\App\Http\Middleware\CorsMiddleware::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

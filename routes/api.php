@@ -1,12 +1,11 @@
 <?php
 
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\ProfileController;
-use App\Http\Controllers\Api\SkillsController;
-use App\Http\Controllers\Api\ProjectsController;
-use App\Http\Controllers\Api\ExperienceController;
-use App\Http\Controllers\Api\MetaController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\SkillsController;
+use App\Http\Controllers\ProjectsController;
+use App\Http\Controllers\ExperienceController;
+use App\Http\Controllers\MetaController;
 use Composer\InstalledVersions;
 
 /*
@@ -18,7 +17,6 @@ use Composer\InstalledVersions;
 | Toutes les routes sont publiques et ne nécessitent pas d'authentification
 |
 */
-
 
 // Route de base de l'API
 Route::get('/', function () {
