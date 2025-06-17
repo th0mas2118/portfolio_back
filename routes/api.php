@@ -35,7 +35,7 @@ Route::get('/', function () {
             'meta' => 'Métadonnées de l\'API'
         ]
     ]);
-});
+})->name('api');
 
 // Routes Profil & Identité
 Route::prefix('profile')->name('profile.')->group(function () {

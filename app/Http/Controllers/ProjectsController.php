@@ -8,7 +8,14 @@ use Illuminate\Http\JsonResponse;
 class ProjectsController extends Controller
 {
     /**
-     * Tous les projets
+     * Tous les projets du portfolio
+     * 
+     * Retourne la liste complète de tous les projets réalisés,
+     * incluant les projets en vedette et les autres réalisations.
+     * Chaque projet contient : technologies, description, liens,
+     * captures d'écran et métriques de développement.
+     * 
+     * @return JsonResponse Liste exhaustive des projets
      */
     public function all(): JsonResponse
     {
@@ -27,7 +34,13 @@ class ProjectsController extends Controller
     }
 
     /**
-     * Projets mis en avant
+     * Projets mis en avant et réalisations phares
+     * 
+     * Sélection des meilleurs projets du portfolio, choisis pour
+     * démontrer l'étendue des compétences et la qualité du travail.
+     * Inclut les projets les plus complexes, innovants ou récents.
+     * 
+     * @return JsonResponse Projets sélectionnés du portfolio
      */
     public function featured(): JsonResponse
     {
@@ -40,7 +53,14 @@ class ProjectsController extends Controller
     }
 
     /**
-     * Détails d'un projet spécifique
+     * Détails complets d'un projet spécifique
+     * 
+     * Informations détaillées sur un projet : architecture technique,
+     * défis rencontrés, solutions apportées, résultats obtenus,
+     * technologies utilisées et apprentissages réalisés.
+     * 
+     * @param int $id Identifiant unique du projet
+     * @return JsonResponse Détails complets du projet
      */
     public function show(int $id): JsonResponse
     {
@@ -58,7 +78,14 @@ class ProjectsController extends Controller
     }
 
     /**
-     * Projets par technologie
+     * Projets filtrés par technologie spécifique
+     * 
+     * Recherche et retourne tous les projets utilisant une technologie
+     * particulière (framework, langage, outil). Utile pour démontrer
+     * l'expertise sur une stack technique spécifique.
+     * 
+     * @param string $tech Nom de la technologie à filtrer
+     * @return JsonResponse Projets utilisant cette technologie
      */
     public function byTechnology(string $tech): JsonResponse
     {
@@ -78,7 +105,13 @@ class ProjectsController extends Controller
     }
 
     /**
-     * Statistiques des projets
+     * Statistiques et métriques du portfolio
+     * 
+     * Données quantitatives sur l'ensemble des projets :
+     * répartition par technologies, durées de développement,
+     * types de projets, évolution dans le temps et indicateurs clés.
+     * 
+     * @return JsonResponse Métriques et analyses du portfolio
      */
     public function statistics(): JsonResponse
     {

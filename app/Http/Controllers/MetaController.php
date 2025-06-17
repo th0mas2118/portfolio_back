@@ -3,85 +3,378 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use Composer\InstalledVersions;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
 class MetaController extends Controller
 {
     /**
-     * Liste de tous les endpoints disponibles
+     * Liste de tous les endpoints disponibles (générée automatiquement)
      */
-    public function endpoints(): JsonResponse
+    public function endpoints(Request $request): JsonResponse
     {
+        $request->validate([
+            'light' => 'boolean|nullable'
+        ]);
+        
+        $light = $request->boolean('light', false);
+        
+        // Récupérer toutes les routes
+        $routes = Route::getRoutes();
+        $apiRoutes = [];
+        $categories = [];
+        
+        foreach ($routes as $route) {
+            $uri = $route->uri();
+            $methods = $route->methods();
+            $name = $route->getName();
+            $action = $route->getAction();
+            
+            // Ne prendre que les routes qui commencent par 'api/'
+            if (str_starts_with($uri, 'api/')) {
+                // Nettoyer les méthodes (enlever HEAD)
+                $cleanMethods = array_filter($methods, function($method) {
+                    return !in_array($method, ['HEAD']);
+                });
+                
+                foreach ($cleanMethods as $method) {
+                    // Extraire la catégorie de l'URI
+                    $category = $this->extractCategoryFromUri($uri);
+                    
+                    // Récupérer la description depuis le docblock de la méthode
+                    $description = $this->getDescriptionFromController($action);
+                    
+                    $endpoint = [
+                        'method' => $method,
+                        'uri' => '/' . $uri,
+                        'name' => $name,
+                        'description' => $description,
+                        'category' => $category,
+                        'parameters' => $this->extractParameters($uri)
+                    ];
+                    
+                    // Ajouter à la catégorie appropriée
+                    if (!isset($categories[$category])) {
+                        $categories[$category] = [
+                            'description' => $this->getCategoryDescription($category),
+                            'endpoints' => []
+                        ];
+                    }
+                    
+                    $categories[$category]['endpoints'][] = $endpoint;
+                    $apiRoutes[] = $endpoint;
+                }
+            }
+        }
+        
+        // Trier les catégories et endpoints
+        ksort($categories);
+        foreach ($categories as &$category) {
+            usort($category['endpoints'], function($a, $b) {
+                return strcmp($a['uri'], $b['uri']);
+            });
+        }
+        
+        if ($light) {
+            return response()->json([
+                'api_info' => [
+                    'name' => 'Portfolio API',
+                    'version' => '1.0.0',
+                    'description' => 'API REST pour CV interactif (descriptions depuis docblocks)',
+                    'base_url' => url('/api'),
+                    'generated_at' => now()->toISOString()
+                ],
+                'endpoints' => $apiRoutes,
+                'total' => count($apiRoutes),
+                'version' => InstalledVersions::getRootPackage()['version'],
+            ]);
+        }
+        
         return response()->json([
             'api_info' => [
                 'name' => 'Portfolio API',
-                'version' => '1.0.0',
-                'description' => 'API REST pour CV interactif',
-                'base_url' => url('/api')
+                'version' => InstalledVersions::getRootPackage()['version'],
+                'description' => 'API REST pour CV interactif (descriptions depuis docblocks)',
+                'base_url' => url('/api'),
+                'generated_at' => now()->toISOString()
             ],
-            'categories' => [
-                'profile' => [
-                    'description' => 'Informations personnelles et profil',
-                    'endpoints' => [
-                        'GET /api/profile/basic' => 'Informations de base',
-                        'GET /api/profile/bio' => 'Biographie détaillée',
-                        'GET /api/profile/contact' => 'Coordonnées et réseaux',
-                        'GET /api/profile/availability' => 'Disponibilité',
-                        'GET /api/profile/languages' => 'Langues parlées'
-                    ]
-                ],
-                'skills' => [
-                    'description' => 'Compétences techniques et soft skills',
-                    'endpoints' => [
-                        'GET /api/skills/technical' => 'Compétences techniques',
-                        'GET /api/skills/soft' => 'Soft skills',
-                        'GET /api/skills/frameworks' => 'Frameworks maîtrisés',
-                        'GET /api/skills/databases' => 'Bases de données',
-                        'GET /api/skills/tools' => 'Outils de développement',
-                        'GET /api/skills/evolution' => 'Évolution des compétences'
-                    ]
-                ],
-                'projects' => [
-                    'description' => 'Portfolio et réalisations',
-                    'endpoints' => [
-                        'GET /api/projects/all' => 'Tous les projets',
-                        'GET /api/projects/featured' => 'Projets mis en avant',
-                        'GET /api/projects/{id}' => 'Détails d\'un projet',
-                        'GET /api/projects/technologies/{tech}' => 'Projets par technologie',
-                        'GET /api/projects/statistics' => 'Statistiques des projets'
-                    ]
-                ],
-                'experience' => [
-                    'description' => 'Expérience professionnelle et formation',
-                    'endpoints' => [
-                        'GET /api/experience/professional' => 'Expériences professionnelles',
-                        'GET /api/experience/education' => 'Formation et éducation',
-                        'GET /api/experience/timeline' => 'Timeline chronologique',
-                        'GET /api/cv/full' => 'CV complet',
-                        'GET /api/certifications' => 'Certifications',
-                        'GET /api/achievements' => 'Réalisations marquantes'
-                    ]
-                ],
-                'meta' => [
-                    'description' => 'Métadonnées de l\'API',
-                    'endpoints' => [
-                        'GET /api/meta/endpoints' => 'Liste des endpoints',
-                        'GET /api/meta/documentation' => 'Documentation',
-                        'GET /api/meta/version' => 'Version de l\'API',
-                        'GET /api/health' => 'Statut de l\'API'
-                    ]
-                ]
+            'categories' => $categories,
+            'all_endpoints' => $apiRoutes,
+            'statistics' => [
+                'total_endpoints' => count($apiRoutes),
+                'total_categories' => count($categories),
+                'methods_supported' => array_unique(array_column($apiRoutes, 'method'))
             ],
-            'total_endpoints' => 23,
             'authentication' => 'None required',
             'rate_limit' => 'None',
             'cors_enabled' => true,
             'supported_formats' => ['JSON']
         ]);
     }
+    
+    /**
+     * Récupérer la description depuis le docblock de la méthode du controller
+     */
+    private function getDescriptionFromController(array $action): string
+    {
+        // Vérifier si c'est un controller avec une méthode
+        if (!isset($action['controller']) || !str_contains($action['controller'], '@')) {
+            return 'Endpoint sans description';
+        }
+        
+        try {
+            // Extraire la classe et la méthode
+            [$controllerClass, $methodName] = explode('@', $action['controller']);
+            
+            // Utiliser la Reflection pour accéder au docblock
+            $reflectionClass = new \ReflectionClass($controllerClass);
+            $reflectionMethod = $reflectionClass->getMethod($methodName);
+            
+            // Récupérer le docblock
+            $docComment = $reflectionMethod->getDocComment();
+            
+            if ($docComment) {
+                // Parser le docblock pour extraire la description
+                return $this->parseDocComment($docComment);
+            }
+            
+        } catch (\ReflectionException $e) {
+            // En cas d'erreur de reflection, utiliser une description par défaut
+            return "Méthode: {$methodName}";
+        } catch (\Exception $e) {
+            return 'Description indisponible';
+        }
+        
+        // Fallback sur une description par défaut
+        return $this->getDefaultDescription($action);
+    }
+    
+    /**
+     * Parser un docblock pour extraire la description
+     */
+    private function parseDocComment(string $docComment): string
+    {
+        // Nettoyer le docblock
+        $lines = explode("\n", $docComment);
+        $description = '';
+        
+        foreach ($lines as $line) {
+            // Nettoyer la ligne (enlever /*, */ et *)
+            $cleanLine = trim($line);
+            $cleanLine = preg_replace('/^\s*\/?\*+\/?/', '', $cleanLine);
+            $cleanLine = trim($cleanLine);
+            
+            // Si la ligne commence par @, c'est une annotation, on s'arrête
+            if (str_starts_with($cleanLine, '@')) {
+                break;
+            }
+            
+            // Si ce n'est pas vide, l'ajouter à la description
+            if (!empty($cleanLine)) {
+                if (empty($description)) {
+                    $description = $cleanLine;
+                } else {
+                    $description .= ' ' . $cleanLine;
+                }
+            }
+        }
+        
+        return !empty($description) ? $description : 'Aucune description disponible';
+    }
+    
+    /**
+     * Description par défaut basée sur l'action
+     */
+    private function getDefaultDescription(array $action): string
+    {
+        if (isset($action['controller']) && str_contains($action['controller'], '@')) {
+            [$controllerClass, $methodName] = explode('@', $action['controller']);
+            $controllerName = class_basename($controllerClass);
+            return "Méthode {$methodName} du {$controllerName}";
+        }
+        
+        return 'Endpoint sans description';
+    }
+    
+    /**
+     * Extraire la catégorie à partir de l'URI
+     */
+    private function extractCategoryFromUri(string $uri): string
+    {
+        $parts = explode('/', $uri);
+        if (count($parts) >= 2 && $parts[0] === 'api') {
+            return $parts[1];
+        }
+        return 'other';
+    }
+    
+    /**
+     * Extraire les paramètres d'une URI
+     */
+    private function extractParameters(string $uri): array
+    {
+        preg_match_all('/\{([^}]+)\}/', $uri, $matches);
+        
+        $parameters = [];
+        foreach ($matches[1] as $param) {
+            $parameters[] = [
+                'name' => $param,
+                'type' => $this->guessParameterType($param),
+                'required' => true,
+                'description' => $this->getParameterDescription($param)
+            ];
+        }
+        
+        return $parameters;
+    }
+    
+    /**
+     * Deviner le type d'un paramètre
+     */
+    private function guessParameterType(string $param): string
+    {
+        if (in_array($param, ['id'])) {
+            return 'integer';
+        }
+        return 'string';
+    }
+    
+    /**
+     * Description d'un paramètre
+     */
+    private function getParameterDescription(string $param): string
+    {
+        $descriptions = [
+            'id' => 'Identifiant unique de la ressource',
+            'tech' => 'Nom de la technologie'
+        ];
+        
+        return $descriptions[$param] ?? "Paramètre: {$param}";
+    }
+    
+    /**
+     * Description d'une catégorie
+     */
+    private function getCategoryDescription(string $category): string
+    {
+        $descriptions = [
+            'profile' => 'Informations personnelles et profil',
+            'skills' => 'Compétences techniques et soft skills',
+            'projects' => 'Portfolio et réalisations',
+            'experience' => 'Expérience professionnelle et formation',
+            'cv' => 'CV et documents',
+            'meta' => 'Métadonnées de l\'API',
+            'certifications' => 'Certifications',
+            'achievements' => 'Réalisations',
+            'health' => 'Santé de l\'API',
+            'other' => 'Autres endpoints'
+        ];
+        
+        return $descriptions[$category] ?? ucfirst($category);
+    }
 
     /**
-     * Documentation de l'API
+     * Extraire la catégorie d'une route
+     */
+    private function extractCategory(string $uri, ?string $name): string
+    {
+        // Si le nom de route existe, l'utiliser
+        if ($name && str_contains($name, '.')) {
+            $parts = explode('.', $name);
+            return $parts[0] ?? 'other';
+        }
+
+        // Sinon, extraire de l'URI
+        $uriParts = explode('/', $uri);
+        if (count($uriParts) >= 2 && $uriParts[0] === 'api') {
+            return $uriParts[1];
+        }
+
+        return 'other';
+    }
+
+    /**
+     * Générer une description pour une route
+     */
+    private function getRouteDescription(string $uri, ?string $name, string $action): string
+    {
+        // Descriptions personnalisées basées sur l'URI ou le nom
+        $descriptions = [
+            // Profil
+            'api/profile/basic' => 'Informations de base du profil',
+            'api/profile/bio' => 'Biographie détaillée et présentation',
+            'api/profile/contact' => 'Coordonnées et réseaux sociaux',
+            'api/profile/availability' => 'Statut de disponibilité pour missions',
+            'api/profile/languages' => 'Langues parlées avec niveaux',
+
+            // Compétences
+            'api/skills/technical' => 'Compétences techniques avec niveaux de maîtrise',
+            'api/skills/soft' => 'Compétences relationnelles et méthodologiques',
+            'api/skills/frameworks' => 'Frameworks et librairies maîtrisés',
+            'api/skills/databases' => 'Bases de données utilisées',
+            'api/skills/tools' => 'Outils de développement et logiciels',
+            'api/skills/evolution' => 'Évolution des compétences dans le temps',
+
+            // Projets
+            'api/projects/all' => 'Liste complète des projets réalisés',
+            'api/projects/featured' => 'Projets mis en avant dans le portfolio',
+            'api/projects/statistics' => 'Statistiques sur les projets (technologies, dates)',
+
+            // Expérience
+            'api/experience/professional' => 'Parcours professionnel et postes occupés',
+            'api/experience/education' => 'Diplômes et formations suivies',
+            'api/experience/timeline' => 'Chronologie complète du parcours',
+            'api/cv/full' => 'CV complet formaté',
+            'api/certifications' => 'Certifications obtenues',
+            'api/achievements' => 'Réalisations marquantes',
+
+            // Meta
+            'api/meta/endpoints' => 'Liste de tous les endpoints de l\'API',
+            'api/meta/documentation' => 'Documentation complète de l\'API',
+            'api/meta/version' => 'Version actuelle de l\'API',
+            'api/health' => 'État de santé de l\'API',
+            'api/debug-cors' => 'Route de test pour debug CORS',
+            'api' => 'Informations générales de l\'API'
+        ];
+
+        // Retourner la description personnalisée ou générer une description automatique
+        if (isset($descriptions[$uri])) {
+            return $descriptions[$uri];
+        }
+
+        // Description automatique basée sur l'action du controller
+        if (str_contains($action, '@')) {
+            $actionParts = explode('@', $action);
+            $method = $actionParts[1] ?? '';
+            return "Opération: {$method}";
+        }
+
+        return "Endpoint: {$uri}";
+    }
+
+    /**
+     * Nettoyer les méthodes HTTP
+     */
+    private function cleanMethods(array $methods): array
+    {
+        // Enlever HEAD et OPTIONS si GET existe
+        $methods = array_filter($methods, function ($method) {
+            return !in_array($method, ['HEAD']);
+        });
+
+        return array_values($methods);
+    }
+
+    /**
+     * Documentation complète de l'API
+     * 
+     * Guide d'utilisation détaillé de l'API avec exemples pratiques,
+     * structure des réponses, codes d'erreur, bonnes pratiques
+     * et informations techniques pour les développeurs.
+     * 
+     * @return JsonResponse Documentation interactive de l'API
      */
     public function documentation(): JsonResponse
     {
@@ -219,7 +512,7 @@ class MetaController extends Controller
     public function health(): JsonResponse
     {
         $startTime = microtime(true);
-        
+
         // Vérifications de base
         $checks = [
             'api' => 'healthy',
@@ -231,7 +524,7 @@ class MetaController extends Controller
         ];
 
         $responseTime = round((microtime(true) - $startTime) * 1000, 2);
-        
+
         $overallStatus = in_array('unhealthy', $checks) ? 'unhealthy' : 'healthy';
 
         return response()->json([
@@ -268,11 +561,11 @@ class MetaController extends Controller
     {
         $usage = memory_get_usage(true);
         $limit = ini_get('memory_limit');
-        
+
         if ($usage < 50 * 1024 * 1024) { // < 50MB
             return 'healthy';
         }
-        
+
         return 'warning';
     }
 
@@ -283,11 +576,11 @@ class MetaController extends Controller
     {
         $free = disk_free_space('/');
         $total = disk_total_space('/');
-        
+
         if ($free && $total && ($free / $total) > 0.1) { // > 10% libre
             return 'healthy';
         }
-        
+
         return 'warning';
     }
 
