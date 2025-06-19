@@ -59,7 +59,8 @@ class CorsMiddleware
     private function getAllowedOrigin(): string
     {
         $origin = request()->header('Origin');
-        $allowedOrigins = config('cors.allowed_origins', []);
+        $allowedOrigins = explode(',', config('cors.allowed_origins', ''));
+        $allowedOrigins = array_map('trim', $allowedOrigins); // Trim des espaces
         
         // Si '*' est autorisé, retourner '*'
         if (in_array('*', $allowedOrigins)) {

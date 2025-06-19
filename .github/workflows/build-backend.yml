@@ -6,9 +6,6 @@ on:
     # Se déclenche uniquement pour les tags
     tags:
       - '*'
-    # Temporaire: aussi sur la branche de test
-    branches:
-      - 'feature/docker-k3s'
 
 jobs:
   build-and-push:
