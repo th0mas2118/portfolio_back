@@ -1,24 +1,27 @@
-name: Build and Push Docker Image
+name: Build and Push Docker Image (Optimized for Speed)
 
-# Définit quand ce workflow sera déclenché
+# Déclenché uniquement pour les tags
 on:
   push:
-    # Se déclenche uniquement pour les tags
     tags:
       - '*'
 
 jobs:
   build-and-push:
-    runs-on: ubuntu-latest  # Utilise une machine Ubuntu pour exécuter les tâches
+    runs-on: ubuntu-latest
     
     steps:
       # Étape 1: Récupérer le code source
       - name: Checkout code
         uses: actions/checkout@v4
       
-      # Étape 2: Configurer Docker Buildx (pour les builds multi-plateformes)
+      # Étape 2: Configurer Docker Buildx avec cache optimisé
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: |
+            network=host
+            image=moby/buildkit:master
       
       # Étape 3: Se connecter à GitHub Container Registry
       - name: Log in to GitHub Container Registry
@@ -28,7 +31,7 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.CR_PAT }}
       
-      # Étape 4: Extraire les métadonnées (comme le numéro de version du tag)
+      # Étape 4: Extraire les métadonnées
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -36,18 +39,30 @@ jobs:
           images: ghcr.io/${{ github.repository_owner }}/portfolio-backend
           tags: |
             type=ref,event=tag
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
+            type=raw,value=latest
             type=semver,pattern={{version}}
       
-      # Étape 5: Construire et pousser l'image Docker
-      - name: Build and push
+      # Étape 5: Build super optimisé (AMD64 uniquement)
+      - name: Build and push (Super Fast)
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile.k3s
           push: true
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Cache multi-niveaux pour performance maximale
+          cache-from: |
+            type=gha
+            type=registry,ref=ghcr.io/${{ github.repository_owner }}/portfolio-backend:cache
+          cache-to: |
+            type=gha,mode=max
+            type=registry,ref=ghcr.io/${{ github.repository_owner }}/portfolio-backend:cache,mode=max
+          # Optimisations Buildkit avancées
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1
+            COMPOSER_CACHE_DIR=/tmp/composer-cache
+          # Secrets pour optimisations
+          secrets: |
+            GIT_AUTH_TOKEN=${{ github.token }}
