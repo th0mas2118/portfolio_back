@@ -1,7 +1,7 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
     "name": "portfolio/api",
-    "version": "0.0.1",
+    "version": "0.0.3",
     "type": "project",
     "description": "Portfolio API - CV Interactif sans base de données",
     "keywords": ["laravel", "api", "portfolio", "cv"],

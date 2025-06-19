@@ -30,7 +30,7 @@ return [
     /*
      * Matches the request origin. `['*']` allows all origins. Wildcards can be used, eg `*.mydomain.com`
      */
-    'allowed_origins' => [env('CORS_ALLOWED_ORIGINS', '*')],
+    'allowed_origins' => array_map('trim', explode(',', env('CORS_ALLOWED_ORIGINS', '*'))),
 
     /*
      * Patterns that can be used with `preg_match` to match the origin.
