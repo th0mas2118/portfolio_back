@@ -18,8 +18,14 @@ COPY --from=composer:2.7 /usr/bin/composer /usr/bin/composer
 # Définir le répertoire de travail
 WORKDIR /app
 
-# Exposer le port pour le serveur de développement Laravel
+# Copier les fichiers du projet
+COPY . .
+
+# Installer les dépendances
+RUN composer install --no-dev --optimize-autoloader
+
+# Exposer le port pour le serveur Laravel
 EXPOSE 8000
 
-# Commande par défaut
-CMD ["bash"]
+# Commande pour démarrer Laravel
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]

@@ -2,7 +2,7 @@ services:
   laravel:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: ${DOCKERFILE:-Dockerfile.dev}
     container_name: portfolio_laravel
     working_dir: /app
     volumes:
