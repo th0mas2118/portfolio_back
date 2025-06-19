@@ -1,53 +1,39 @@
+# Dockerfile officiel Laravel + FrankenPHP
+# Basé sur : https://laravel.com/docs/12.x/octane et https://frankenphp.dev/docs/laravel/
+
 FROM dunglas/frankenphp:php8.4-alpine
 
-# Installer les dépendances système
-RUN apk add --no-cache \
-    git \
-    curl \
-    libzip-dev \
-    unzip \
-    && docker-php-ext-install zip opcache
+# Variables d'environnement pour HTTP (pas HTTPS)
+ENV SERVER_NAME="http://"
 
-# Configuration OPcache optimisée
-RUN { \
-        echo 'opcache.enable=1'; \
-        echo 'opcache.memory_consumption=256'; \
-        echo 'opcache.interned_strings_buffer=16'; \
-        echo 'opcache.max_accelerated_files=20000'; \
-        echo 'opcache.validate_timestamps=0'; \
-        echo 'opcache.revalidate_freq=0'; \
-        echo 'opcache.save_comments=0'; \
-    } > /usr/local/etc/php/conf.d/opcache.ini
+# Extensions PHP essentielles
+RUN install-php-extensions \
+    opcache \
+    zip
 
-# Configuration PHP production
-RUN { \
-        echo 'memory_limit=256M'; \
-        echo 'max_execution_time=30'; \
-        echo 'expose_php=Off'; \
-        echo 'display_errors=Off'; \
-        echo 'log_errors=On'; \
-    } > /usr/local/etc/php/conf.d/production.ini
+# Configuration OPcache production
+RUN echo 'opcache.enable=1' > /usr/local/etc/php/conf.d/opcache.ini \
+    && echo 'opcache.memory_consumption=256' >> /usr/local/etc/php/conf.d/opcache.ini \
+    && echo 'opcache.max_accelerated_files=20000' >> /usr/local/etc/php/conf.d/opcache.ini
 
 # Installer Composer
 COPY --from=composer:2.7 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /app
 
-# Copier composer files en premier (cache Docker)
+# Copier et installer les dépendances
 COPY composer.json composer.lock ./
+RUN COMPOSER_ALLOW_SUPERUSER=1 composer install --no-dev --optimize-autoloader --no-scripts
 
-# Installer dépendances avec optimisations
-RUN COMPOSER_ALLOW_SUPERUSER=1 composer install --no-dev --no-scripts --optimize-autoloader
-
-# Copier le code
+# Copier le code application
 COPY . .
 
-# Optimisations finales
-RUN COMPOSER_ALLOW_SUPERUSER=1 composer dump-autoload --optimize --no-dev --no-scripts \
-    && chown -R www-data:www-data /app/storage /app/bootstrap/cache \
-    && chmod -R 775 /app/storage /app/bootstrap/cache
+# Optimisations Laravel
+RUN COMPOSER_ALLOW_SUPERUSER=1 composer dump-autoload --optimize --no-scripts \
+    && chmod -R 755 /app \
+    && chown -R www-data:www-data /app/storage /app/bootstrap/cache
 
 EXPOSE 8000
 
-# Commande FrankenPHP officielle Laravel
+# Commande FrankenPHP officielle pour Laravel
 CMD ["frankenphp", "php-server", "-r", "public/", "--listen", ":8000"]
