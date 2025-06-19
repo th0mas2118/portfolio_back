@@ -1,31 +1,53 @@
-FROM php:8.4-cli
+FROM dunglas/frankenphp:php8.4-alpine
 
 # Installer les dépendances système
-RUN apt-get update && apt-get install -y \
+RUN apk add --no-cache \
     git \
     curl \
     libzip-dev \
     unzip \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && docker-php-ext-install zip opcache
 
-# Installer les extensions PHP nécessaires
-RUN docker-php-ext-install zip
+# Configuration OPcache optimisée
+RUN { \
+        echo 'opcache.enable=1'; \
+        echo 'opcache.memory_consumption=256'; \
+        echo 'opcache.interned_strings_buffer=16'; \
+        echo 'opcache.max_accelerated_files=20000'; \
+        echo 'opcache.validate_timestamps=0'; \
+        echo 'opcache.revalidate_freq=0'; \
+        echo 'opcache.save_comments=0'; \
+    } > /usr/local/etc/php/conf.d/opcache.ini
+
+# Configuration PHP production
+RUN { \
+        echo 'memory_limit=256M'; \
+        echo 'max_execution_time=30'; \
+        echo 'expose_php=Off'; \
+        echo 'display_errors=Off'; \
+        echo 'log_errors=On'; \
+    } > /usr/local/etc/php/conf.d/production.ini
 
 # Installer Composer
 COPY --from=composer:2.7 /usr/bin/composer /usr/bin/composer
 
-# Définir le répertoire de travail
 WORKDIR /app
 
-# Copier les fichiers du projet
+# Copier composer files en premier (cache Docker)
+COPY composer.json composer.lock ./
+
+# Installer dépendances avec optimisations
+RUN COMPOSER_ALLOW_SUPERUSER=1 composer install --no-dev --no-scripts --optimize-autoloader
+
+# Copier le code
 COPY . .
 
-# Installer les dépendances
-RUN composer install --no-dev --optimize-autoloader
+# Optimisations finales
+RUN COMPOSER_ALLOW_SUPERUSER=1 composer dump-autoload --optimize --no-dev --no-scripts \
+    && chown -R www-data:www-data /app/storage /app/bootstrap/cache \
+    && chmod -R 775 /app/storage /app/bootstrap/cache
 
-# Exposer le port pour le serveur Laravel
 EXPOSE 8000
 
-# Commande pour démarrer Laravel
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+# Commande FrankenPHP officielle Laravel
+CMD ["frankenphp", "php-server", "-r", "public/", "--listen", ":8000"]
